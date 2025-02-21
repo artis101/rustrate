@@ -123,3 +123,40 @@ pub async fn request_handler(
         .body(response_body)
         .unwrap()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_single_delay() {
+        let config = DelayConfig::parse("100").unwrap();
+        assert_eq!(config.min, 100);
+        assert_eq!(config.max, 100);
+    }
+
+    #[test]
+    fn test_parse_delay_range() {
+        let config = DelayConfig::parse("50-150").unwrap();
+        assert_eq!(config.min, 50);
+        assert_eq!(config.max, 150);
+    }
+
+    #[test]
+    fn test_parse_invalid_format() {
+        assert!(DelayConfig::parse("invalid").is_err());
+    }
+
+    #[test]
+    fn test_parse_invalid_range() {
+        // Minimum must be less than maximum.
+        assert!(DelayConfig::parse("200-100").is_err());
+    }
+
+    #[test]
+    fn test_get_delay_fixed() {
+        let config = DelayConfig::parse("100").unwrap();
+        let delay = config.get_delay();
+        assert_eq!(delay, 100);
+    }
+}

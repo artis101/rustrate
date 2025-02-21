@@ -180,8 +180,8 @@ impl TuiData {
     fn compute_rps_stats(&self) -> (u64, u64, f64, u64, u64) {
         // Exclude the current second from the calculation
         let mut data: Vec<u64> = self.rps_history[1..].to_vec();
-        let greater_than_zero: Vec<u64> = data.iter().filter(|&&x| x > 0).cloned().collect();
         data.sort_unstable();
+        let greater_than_zero: Vec<u64> = data.iter().filter(|&&x| x > 0).cloned().collect();
         // min excludes 0 values
         let min = *greater_than_zero.first().unwrap_or(&0);
         let max = *data.last().unwrap();
@@ -231,6 +231,8 @@ pub fn run_tui(mut rx: Receiver<AppEvent>, port: u16) -> anyhow::Result<()> {
                     data.push_log(log);
                     data.increment_rps();
                 }
+                // disable warning for unreachable pattern
+                #[allow(unreachable_patterns)]
                 _ => (),
             }
         }
@@ -389,4 +391,73 @@ fn draw_ui<B: ratatui::backend::Backend>(frame: &mut ratatui::Frame<B>, data: &T
     let logs_paragraph =
         Paragraph::new(logs_text).block(Block::default().borders(Borders::ALL).title("Logs"));
     frame.render_widget(logs_paragraph, vertical_chunks[2]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::RequestLog;
+    use chrono::Utc;
+    use std::time::Instant;
+
+    #[test]
+    fn test_push_log_updates_stats() {
+        let start = Instant::now();
+        let mut data = TuiData::new(start, 8080);
+        let now = Utc::now().timestamp();
+        let log = RequestLog {
+            path: "/test".to_string(),
+            method: "GET".to_string(),
+            status: 200,
+            timestamp: now,
+            duration_ms: 120.0,
+        };
+        data.push_log(log);
+        assert_eq!(data.total_requests, 1);
+        assert_eq!(data.get_min_delay(), 120.0);
+        assert_eq!(data.get_max_delay(), 120.0);
+        assert_eq!(data.get_avg_delay(), 120.0);
+        assert_eq!(data.logs.len(), 1);
+    }
+
+    #[test]
+    fn test_update_rps_shifts_history() {
+        let start = Instant::now();
+        let mut data = TuiData::new(start, 8080);
+        // Simulate some RPS count at the current second.
+        data.rps_history[0] = 5;
+        data.rps_display_history[0] = 5;
+        // Simulate that 10 seconds have passed.
+        let now = Utc::now().timestamp();
+        data.last_rps_update = now - 10;
+        data.update_rps(now);
+        // After shifting, the previous count should now be at index 10.
+        assert_eq!(data.rps_history[10], 5);
+        // And the first 10 indices should be reset to 0.
+        for i in 0..10 {
+            assert_eq!(data.rps_history[i], 0);
+        }
+    }
+
+    #[test]
+    fn test_compute_rps_stats() {
+        let start = Instant::now();
+        let mut data = TuiData::new(start, 8080);
+        // Manually set rps_history for indices 1.. (index 0 is the current second and ignored)
+        // Here we simulate sample RPS counts; non-zero values: 5, 3, 8, 2, 7, 4, 6.
+        data.rps_history = [
+            0, 5, 3, 8, 2, 7, 1, 4, 4, 6, 8, 7, 2, 2, 3, 5, 4, 4, 7, 1, 7, 5, 9, 9, 8, 9, 5, 9, 2,
+            7, 6, 8, 1, 1, 2, 8, 7, 4, 2, 7, 11, 6, 6, 5, 6, 2, 3, 2, 8, 7, 1, 5, 7, 3, 4, 5, 6, 5,
+            5, 3,
+        ];
+        let (min, max, avg, median, p90) = data.compute_rps_stats();
+        // After sorting non-zero values: 2, 3, 4, 5, 6, 7, 8.
+        assert_eq!(min, 1);
+        assert_eq!(max, 11);
+        assert_eq!(median, 5);
+        assert_eq!(avg.round() as u64, 5);
+        assert_eq!(p90, 9);
+        // The 90th percentile (p90) should lie between the median and max.
+        assert!(p90 >= median && p90 <= max);
+    }
 }

@@ -12,7 +12,7 @@ pub struct RequestLog {
     pub method: String,
     pub status: u16,
     pub timestamp: i64,   // Unix timestamp
-    pub duration_ms: f64,  // Request duration in milliseconds with nanosecond precision
+    pub duration_ms: f64, // Request duration in milliseconds with nanosecond precision
 }
 
 /// Events that the server sends to the TUI
@@ -59,5 +59,35 @@ impl AppState {
     /// Get the delay for the current request
     pub fn get_delay(&self) -> u64 {
         self.delay_config.get_delay()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::OutputFormat;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_app_state_new() {
+        let (tx, _rx) = mpsc::channel(10);
+        let state = AppState::new(tx, "100", OutputFormat::Json).unwrap();
+        // Verify that the total_requests counter starts at 0.
+        assert_eq!(
+            state
+                .total_requests
+                .load(std::sync::atomic::Ordering::Relaxed),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn test_now_timestamp() {
+        let (tx, _rx) = mpsc::channel(10);
+        let state = AppState::new(tx, "100", OutputFormat::Json).unwrap();
+        let now = state.now_timestamp();
+        // Check that the timestamp is reasonably close to the current UTC time.
+        let current = chrono::Utc::now().timestamp();
+        assert!((now - current).abs() < 2);
     }
 }

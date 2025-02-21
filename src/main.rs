@@ -88,7 +88,7 @@ struct Args {
     run: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OutputFormat {
     Json,
     Text,
@@ -173,4 +173,16 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_output_format_from_str() {
+        assert_eq!("json".parse::<OutputFormat>().unwrap(), OutputFormat::Json);
+        assert_eq!("text".parse::<OutputFormat>().unwrap(), OutputFormat::Text);
+        assert!("xml".parse::<OutputFormat>().is_err());
+    }
 }
