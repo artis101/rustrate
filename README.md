@@ -1,6 +1,6 @@
 # rustrate 🚀
 
-A high-performance HTTP server performance testing tool.
+A high-performance HTTP client performance testing tool.
 
 It mimics real-world request handling while tracking throughput in real time.
 You can easily benchmark and stress-test systems handling heavy HTTP traffic.
