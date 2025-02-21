@@ -7,6 +7,8 @@ You can easily benchmark and stress-test systems handling heavy HTTP traffic.
 
 This project follows semantic versioning.
 
+![rustrate demo video](preview.png "rustrate in action handling a lot of requests")
+
 ## Features
 
 - Handles HTTP requests and simulates real-world response delays.
